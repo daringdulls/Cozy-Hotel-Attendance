@@ -14,6 +14,8 @@ const records = {
 let selected = 1;
 let signed = JSON.parse(localStorage.getItem('clockwise-signed') || '{}');
 let sickLeaves = JSON.parse(localStorage.getItem('clockwise-sick-leaves') || '[{"staffId":3,"date":"2026-08-08","days":1,"paid":true,"note":"Medical leave"}]');
+let dailyAttendance = JSON.parse(localStorage.getItem('clockwise-daily-attendance') || '{"2026-08-08":{"1":{"status":"Present","in":"09:02","out":"17:18"},"2":{"status":"Present","in":"08:54","out":"17:03"},"3":{"status":"Sick leave","in":"","out":""},"4":{"status":"Present","in":"08:45","out":"18:02"},"5":{"status":"Working","in":"09:00","out":""}}}');
+let attendanceDate='2026-08-08', attendanceDepartment='All departments';
 
 const app = document.querySelector('#app');
 const icon = (name) => ({ grid:'&#9638;', team:'&#9823;', calendar:'&#9636;', report:'&#9635;', settings:'&#9881;', bell:'&#9675;', search:'&#8981;', plus:'+', arrow:'&#8594;', check:'&#10003;' }[name]);
@@ -40,7 +42,7 @@ function render(view='dashboard') {
       </aside>
       <main>
         <header><button class="mobile-menu" aria-label="Open menu">â˜°</button><div class="search">${icon('search')}<input aria-label="Search" placeholder="Search staff or records" /></div><button class="round" aria-label="Notifications">${icon('bell')}<em></em></button></header>
-        ${view === 'payroll' ? payrollView() : view === 'register' ? registerView() : dashboardView()}
+        ${view === 'payroll' ? payrollView() : view === 'register' ? registerView() : view === 'attendance' ? attendanceView() : view === 'people' ? staffView() : dashboardView()}
       </main>
     </div>
     <div id="modal"></div>`;
@@ -80,6 +82,16 @@ function dashboardView(){
 
 function metric(label,value,sub,tone){return `<article class="metric"><div class="metric-top"><span>${label}</span><i class="dot ${tone}"></i></div><strong>${value}</strong><small>${sub}</small></article>`}
 
+function attendanceView(){
+  const departments=['All departments',...new Set(staff.map(s=>s.role))];
+  const shown=attendanceDepartment==='All departments'?staff:staff.filter(s=>s.role===attendanceDepartment);
+  const day=dailyAttendance[attendanceDate]||{};
+  return `<section class="content management-view"><div class="eyebrow">DAILY OPERATIONS</div><div class="title-row"><div><h1>Daily attendance</h1><p>Update each staff member's status and working time for the selected day.</p></div><button class="primary" id="saveAttendance">Save attendance</button></div><div class="filter-bar"><label>Date<input id="attendanceDate" type="date" value="${attendanceDate}"></label><label>Department<select id="attendanceDepartment">${departments.map(d=>`<option ${d===attendanceDepartment?'selected':''}>${d}</option>`).join('')}</select></label><div class="filter-summary"><b>${shown.length}</b><span>staff shown</span></div></div><article class="card"><div class="table-wrap"><table class="edit-table"><thead><tr><th>Staff member</th><th>Department</th><th>Status</th><th>Clock in</th><th>Clock out</th><th>Scheduled</th></tr></thead><tbody>${shown.map(s=>{const a=day[s.id]||{status:'Not recorded',in:'',out:''};return `<tr data-attendance-row="${s.id}"><td><div class="person"><span class="avatar" style="--avatar:${s.color}">${s.initials}</span><div><b>${s.name}</b><small>Weekly off: ${s.off}</small></div></div></td><td>${s.role}</td><td><select class="status-select">${['Present','Late','Working','Sick leave','Weekly off','Absent','Not recorded'].map(v=>`<option ${v===a.status?'selected':''}>${v}</option>`).join('')}</select></td><td><input class="time-in" type="time" value="${a.in||''}"></td><td><input class="time-out" type="time" value="${a.out||''}"></td><td>8h</td></tr>`}).join('')}</tbody></table></div></article><div class="status-key"><span class="pill present">Present</span><span class="pill late">Late</span><span class="pill sick">Sick leave</span><span class="pill off-pill">Weekly off</span><span class="pill absent">Absent</span></div></section>`;
+}
+
+function staffView(){
+  return `<section class="content management-view"><div class="eyebrow">TEAM DIRECTORY</div><div class="title-row"><div><h1>Staff</h1><p>Department assignments, work rules, and month-end approval status.</p></div><button class="primary" id="addStaff">${icon('plus')} Add staff member</button></div><div class="metrics staff-metrics">${metric('Total staff',String(staff.length),'active employees','up')}${metric('Departments',String(new Set(staff.map(s=>s.role)).size),'operational teams','neutral')}${metric('Standard day','8 hours','per staff member','neutral')}${metric('Signed this month',`${Object.keys(signed).length} / ${staff.length}`,'payroll approvals','up')}</div><article class="card"><div class="table-wrap"><table><thead><tr><th>Staff member</th><th>Department</th><th>Weekly day off</th><th>Hourly rate</th><th>August sick leave</th><th>Month-end signature</th></tr></thead><tbody>${staff.map(s=>{const sick=sickLeaves.filter(l=>l.staffId===s.id).reduce((n,l)=>n+l.days,0);return `<tr><td><div class="person"><span class="avatar" style="--avatar:${s.color}">${s.initials}</span><div><b>${s.name}</b><small>Staff ID: CH-${String(s.id).padStart(3,'0')}</small></div></div></td><td>${s.role}</td><td>${s.off}</td><td>MVR ${s.rate.toFixed(2)}</td><td>${sick} day${sick===1?'':'s'}</td><td>${signed[s.id]?'<span class="signed">Signed</span>':'<span class="pending-sign">Pending</span>'}</td></tr>`}).join('')}</tbody></table></div></article></section>`;
+}
 function registerView(department='All departments'){
   const days=Array.from({length:31},(_,i)=>i+1);
   const departments=['All departments',...new Set(staff.map(s=>s.role))];
@@ -87,6 +99,8 @@ function registerView(department='All departments'){
   const offIndex={Sunday:0,Monday:1,Tuesday:2,Wednesday:3,Thursday:4,Friday:5,Saturday:6};
   const status=(s,day)=>{
     const iso=`2026-08-${String(day).padStart(2,'0')}`;
+    const saved=dailyAttendance[iso]?.[s.id]?.status;
+    if(saved){return {'Present':'P','Working':'P','Late':'L','Sick leave':'S','Weekly off':'O','Absent':'A','Not recorded':'-'}[saved]||'-'}
     if(sickLeaves.some(l=>l.staffId===s.id&&l.date===iso)) return 'S';
     if(new Date(2026,7,day).getDay()===offIndex[s.off]) return 'O';
     return 'P';
@@ -94,7 +108,7 @@ function registerView(department='All departments'){
   return `<section class="content register-view"><div class="register-toolbar no-print"><div><div class="eyebrow">MONTHLY ATTENDANCE REGISTER</div><h1>August 2026</h1><p>Department register with daily status and month-end signatures.</p></div><div class="register-actions"><label>Department<select id="departmentFilter">${departments.map(d=>`<option ${d===department?'selected':''}>${d}</option>`).join('')}</select></label><button class="primary" id="printRegister">Print / Save PDF</button></div></div>
   <article class="register-sheet"><div class="sheet-heading"><div><span class="sheet-mark"><i></i><i></i><i></i></span><div><h2>COZY HOTEL</h2><p>Staff monthly attendance register</p></div></div><dl><div><dt>Month</dt><dd>August 2026</dd></div><div><dt>Department</dt><dd>${department}</dd></div><div><dt>Working day</dt><dd>8 hours</dd></div></dl></div>
   <div class="register-scroll"><table class="matrix"><thead><tr><th class="staff-col">Staff member</th>${days.map(d=>`<th><b>${d}</b><small>${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][new Date(2026,7,d).getDay()]}</small></th>`).join('')}<th class="total-col">P</th><th class="total-col">S</th><th class="total-col">O</th><th class="signature-col">Staff signature</th></tr></thead><tbody>${shown.map(s=>{const codes=days.map(d=>status(s,d));return `<tr><td class="staff-col"><b>${s.name}</b><small>${s.role}</small></td>${codes.map(c=>`<td><span class="code code-${c.toLowerCase()}">${c}</span></td>`).join('')}<td class="total-col">${codes.filter(c=>c==='P').length}</td><td class="total-col">${codes.filter(c=>c==='S').length}</td><td class="total-col">${codes.filter(c=>c==='O').length}</td><td class="signature-col">${signed[s.id]?'<span class="signed-inline">Signed</span>':'<span class="signature-line"></span>'}</td></tr>`}).join('')}</tbody></table></div>
-  <div class="register-legend"><b>Codes</b><span><i class="code-p">P</i> Present</span><span><i class="code-s">S</i> Sick leave</span><span><i class="code-o">O</i> Weekly off</span></div>
+  <div class="register-legend"><b>Codes</b><span><i class="code-p">P</i> Present</span><span><i class="code-s">S</i> Sick leave</span><span><i class="code-l">L</i> Late</span><span><i class="code-a">A</i> Absent</span><span><i class="code-o">O</i> Weekly off</span></div>
   <div class="sheet-approvals"><div><span></span><b>Department head</b><small>Name, signature & date</small></div><div><span></span><b>HR / Administration</b><small>Name, signature & date</small></div><div><span></span><b>Payroll verified by</b><small>Name, signature & date</small></div></div></article></section>`;
 }
 function payrollView(){
@@ -113,6 +127,9 @@ function bind(){
   document.querySelector('#addSick')?.addEventListener('click',openSickLeave);
   document.querySelector('#exportBtn')?.addEventListener('click',exportCSV);
   document.querySelector('#printRegister')?.addEventListener('click',()=>window.print());
+  document.querySelector('#attendanceDate')?.addEventListener('change',e=>{attendanceDate=e.target.value;render('attendance')});
+  document.querySelector('#attendanceDepartment')?.addEventListener('change',e=>{attendanceDepartment=e.target.value;render('attendance')});
+  document.querySelector('#saveAttendance')?.addEventListener('click',()=>{const day=dailyAttendance[attendanceDate]||{};document.querySelectorAll('[data-attendance-row]').forEach(row=>{day[row.dataset.attendanceRow]={status:row.querySelector('.status-select').value,in:row.querySelector('.time-in').value,out:row.querySelector('.time-out').value}});dailyAttendance[attendanceDate]=day;localStorage.setItem('clockwise-daily-attendance',JSON.stringify(dailyAttendance));toast('Daily attendance saved successfully.')});
   document.querySelector('#departmentFilter')?.addEventListener('change',e=>{document.querySelector('main').innerHTML=`<header><button class="mobile-menu" aria-label="Open menu">&#9776;</button><div class="search">${icon('search')}<input aria-label="Search" placeholder="Search staff or records" /></div><button class="round" aria-label="Notifications">${icon('bell')}<em></em></button></header>${registerView(e.target.value)}`;bind()});
   document.querySelectorAll('[data-sign]').forEach(b=>b.onclick=()=>openSignature(Number(b.dataset.sign)));
   document.querySelector('.mobile-menu')?.addEventListener('click',()=>document.querySelector('.shell').classList.toggle('menu-open'));
