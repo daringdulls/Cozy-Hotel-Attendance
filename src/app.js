@@ -34,7 +34,7 @@ function render(view='dashboard') {
   app.innerHTML = `
     <div class="shell">
       <aside>
-        <div class="brand"><span class="brandmark"><i></i><i></i><i></i></span><b>clockwise</b></div>
+        <div class="brand"><span class="brandmark"><i></i><i></i><i></i></span><div><b>CozyHR</b><small>People operations</small></div></div>
         <nav class="hr-nav">
           ${nav('dashboard','grid','Home',view)}
           <details open><summary><span>${icon('team')}</span>Employee <b>+</b></summary><div><button data-view="people">Staff directory</button><button data-module="Employee records">Employee records</button><button data-module="Contracts and probation">Contracts & probation</button></div></details>
@@ -52,7 +52,7 @@ function render(view='dashboard') {
         </div>
       </aside>
       <main>
-        <header><button class="mobile-menu" aria-label="Open menu">&#9776;</button><div class="search">${icon('search')}<input aria-label="Search" placeholder="Search staff or records" /></div><button class="round" aria-label="Notifications">${icon('bell')}<em></em></button></header>
+        <header><button class="mobile-menu" aria-label="Open menu">&#9776;</button><div class="header-context"><b>Cozy Hotel</b><span>HR Management</span></div><div class="search">${icon('search')}<input aria-label="Search" placeholder="Search people, records or reports" /></div><div class="header-date"><small>Today</small><b>08 Aug 2026</b></div><button class="round" aria-label="Notifications">${icon('bell')}<em></em></button><span class="header-avatar">DA</span></header>
         ${view === 'payroll' ? payrollView() : view === 'register' ? registerView() : view === 'attendance' ? attendanceView() : view === 'timesheet' ? timesheetView() : view === 'people' ? staffView() : view === 'roster' ? rosterView() : dashboardView()}
       </main>
     </div>
@@ -63,34 +63,9 @@ function render(view='dashboard') {
 function nav(id,ico,label,current){ return `<button class="nav-item ${id===current?'active':''}" data-view="${id}"><span>${icon(ico)}</span>${label}</button>`; }
 
 function dashboardView(){
-  const sickToday = new Set(sickLeaves.filter(l=>l.date==='2026-08-08').map(l=>l.staffId));
-  return `<section class="content">
-    <div class="eyebrow">SATURDAY, 08 AUGUST</div>
-    <div class="title-row"><div><h1>Good morning.</h1><p>Here is how your team is doing today.</p></div><div class="title-actions"><button class="secondary" id="addSick">Record sick leave</button><button class="primary" id="addStaff">${icon('plus')} Add staff member</button></div></div>
-    <div class="metrics">
-      ${metric('Today attendance',`${5-sickToday.size} / 5`,`${Math.round((5-sickToday.size)/5*100)}% available`,'up')}
-      ${metric('On time','3','1 late arrival','warn')}
-      ${metric('Hours logged','34h 27m','of 40h scheduled','neutral')}
-      ${metric('Sick leave',String(sickToday.size),sickToday.size?'recorded today':'none today','warn')}
-    </div>
-    <div class="grid-two">
-      <article class="card attendance-card">
-        <div class="card-head"><div><h2>Today's attendance</h2><p>Saturday, 08 August</p></div><button class="text-btn" data-view="attendance">View all ${icon('arrow')}</button></div>
-        <div class="table-wrap"><table><thead><tr><th>Staff member</th><th>Clock in</th><th>Clock out</th><th>Hours</th><th>Status</th></tr></thead><tbody>
-        ${staff.map(s=>{const r=records[s.id], h=hours(r), sick=sickToday.has(s.id); return `<tr><td><div class="person"><span class="avatar" style="--avatar:${s.color}">${s.initials}</span><div><b>${s.name}</b><small>${s.role}</small></div></div></td><td>${sick?'--':r[0]}</td><td>${sick?'--':(r[1]||'--')}</td><td>${sick?'--':(h?h.toFixed(1)+'h':'--')}</td><td>${sick?'<span class="pill sick">Sick leave</span>':s.id===5?'<span class="pill working">Working</span>':s.id===3?'<span class="pill late">Late</span>':'<span class="pill present">Present</span>'}</td></tr>`}).join('')}
-        </tbody></table></div>
-      </article>
-      <aside class="side-stack">
-        <article class="card schedule"><div class="card-head"><div><h2>Weekly schedule</h2><p>03 - 09 August</p></div></div>
-          <div class="week"><div><b>Mon</b><span>03</span></div><div><b>Tue</b><span>04</span></div><div><b>Wed</b><span>05</span></div><div><b>Thu</b><span>06</span></div><div><b>Fri</b><span>07</span></div><div class="today"><b>Sat</b><span>08</span></div><div><b>Sun</b><span>09</span></div></div>
-          <div class="off-list"><div><span class="avatar small" style="--avatar:#d87e5f">S1</span><p><b>Sample Staff 01</b><small>Day off  Friday</small></p><span class="tag">OFF</span></div><div><span class="avatar small" style="--avatar:#6e89a8">S4</span><p><b>Sample Staff 04</b><small>Day off  Thursday</small></p><span class="tag">OFF</span></div></div>
-        </article>
-        <article class="card payroll-nudge"><div class="nudge-icon">${icon('report')}</div><div><h3>August payroll</h3><p>${Object.keys(signed).length} of 5 staff have signed their attendance.</p><div class="progress"><i style="width:${Object.keys(signed).length*20}%"></i></div><button class="text-btn" data-view="payroll">Review monthly attendance ${icon('arrow')}</button></div></article>
-      </aside>
-    </div>
-  </section>`;
+  const signedCount=Object.keys(signed).length,departments=new Set(staff.map(s=>s.role)).size;
+  return `<section class="content executive-dashboard"><div class="welcome-row"><div><div class="eyebrow">PEOPLE OPERATIONS OVERVIEW</div><h1>Good morning, Hana</h1><p>Here is what needs your attention across Cozy Hotel today.</p></div><div class="title-actions"><button class="secondary" data-view="roster">View duty roster</button><button class="primary" id="addStaff">${icon('plus')} Add employee</button></div></div><div class="executive-kpis"><article><span class="kpi-icon people">${icon('team')}</span><div><small>Total workforce</small><strong>${staff.length}</strong><p><b>+1</b> this month</p></div></article><article><span class="kpi-icon attendance">${icon('calendar')}</span><div><small>Present today</small><strong>${Math.max(0,staff.length-1)}</strong><p><b>${Math.round(Math.max(0,staff.length-1)/staff.length*100)}%</b> attendance rate</p></div></article><article><span class="kpi-icon leave">L</span><div><small>On leave</small><strong>1</strong><p>1 sick leave today</p></div></article><article><span class="kpi-icon payroll">${icon('report')}</span><div><small>Payroll readiness</small><strong>${signedCount}/${staff.length}</strong><p>${staff.length-signedCount} signatures pending</p></div></article></div><div class="dashboard-layout"><div class="dashboard-main"><article class="pro-card attention-card"><div class="pro-card-head"><div><h2>Attention centre</h2><p>Upcoming HR actions and deadlines</p></div><span class="count-badge">5 actions</span></div><div class="attention-list"><button data-module="Leave requests"><span class="alert-icon blue">L</span><div><b>Leave requests awaiting review</b><small>2 employees requested leave this week</small></div><em>2 pending</em><i>${icon('arrow')}</i></button><button data-module="Contracts and probation"><span class="alert-icon amber">C</span><div><b>Probation reviews due</b><small>Complete before 15 August</small></div><em>2 reviews</em><i>${icon('arrow')}</i></button><button data-module="Expiry alerts"><span class="alert-icon red">D</span><div><b>Document expiring soon</b><small>Work permit expires in 21 days</small></div><em>1 document</em><i>${icon('arrow')}</i></button></div></article><article class="pro-card department-card"><div class="pro-card-head"><div><h2>Department coverage</h2><p>Today's staffing by operational team</p></div><button data-module="Departments and teams">View teams</button></div><div class="department-bars">${[...new Set(staff.map(s=>s.role))].map((d,i)=>{const n=staff.filter(s=>s.role===d).length,pct=[86,78,92,74,88][i%5];return `<div><span><b>${d}</b><small>${n} staff scheduled</small></span><div><i style="width:${pct}%"></i></div><em>${pct}%</em></div>`}).join('')}</div></article></div><aside class="dashboard-side"><article class="pro-card workforce-card"><div class="pro-card-head"><div><h2>Today at a glance</h2><p>Workforce status</p></div></div><div class="workforce-donut"><div><strong>${staff.length}</strong><span>employees</span></div></div><div class="workforce-legend"><span><i class="present-dot"></i><b>Present</b><em>${Math.max(0,staff.length-1)}</em></span><span><i class="leave-dot"></i><b>On leave</b><em>1</em></span><span><i class="off-dot"></i><b>Weekly off</b><em>0</em></span></div></article><article class="pro-card quick-card"><div class="pro-card-head"><div><h2>Quick actions</h2><p>Common HR tasks</p></div></div><div class="quick-grid"><button id="addStaff"><span>+</span>Add employee</button><button id="addSick"><span>L</span>Record leave</button><button data-view="timesheet"><span>T</span>Timesheets</button><button data-view="roster"><span>R</span>Duty roster</button></div></article><article class="pro-card events-card"><div class="pro-card-head"><div><h2>Upcoming</h2><p>Next 7 days</p></div></div><div class="event-row"><time><b>12</b><small>AUG</small></time><div><b>Staff birthday</b><small>Sample Staff 02</small></div></div><div class="event-row"><time><b>15</b><small>AUG</small></time><div><b>Probation review</b><small>2 employees</small></div></div></article></aside></div></section>`;
 }
-
 function metric(label,value,sub,tone){return `<article class="metric"><div class="metric-top"><span>${label}</span><i class="dot ${tone}"></i></div><strong>${value}</strong><small>${sub}</small></article>`}
 
 function timeToMinutes(v){if(!v)return 0;const [h,m]=v.split(':').map(Number);return h*60+m}
@@ -158,9 +133,9 @@ function bind(){
   document.querySelectorAll('[data-view]').forEach(b=>b.onclick=()=>render(b.dataset.view));
   document.querySelectorAll('[data-module]').forEach(b=>b.onclick=()=>moduleView(b.dataset.module));
   document.querySelector('#navSickLeave')?.addEventListener('click',openSickLeave);
-  document.querySelector('#addStaff')?.addEventListener('click',()=>openStaffForm());
+  document.querySelectorAll('#addStaff').forEach(b=>b.addEventListener('click',()=>openStaffForm()));
   document.querySelectorAll('[data-profile]').forEach(b=>b.onclick=()=>openStaffForm(Number(b.dataset.profile)));
-  document.querySelector('#addSick')?.addEventListener('click',openSickLeave);
+  document.querySelectorAll('#addSick').forEach(b=>b.addEventListener('click',openSickLeave));
   document.querySelector('#exportBtn')?.addEventListener('click',exportCSV);
   document.querySelector('#printRegister')?.addEventListener('click',()=>window.print());
   document.querySelector('#attendanceDate')?.addEventListener('change',e=>{attendanceDate=e.target.value;render('attendance')});
@@ -170,7 +145,7 @@ function bind(){
   document.querySelectorAll('[data-shift]:not(.day-off-card) input').forEach(input=>input.addEventListener('input',()=>{const card=input.closest('[data-shift]'),mins=shiftMinutes(card.querySelector('.shift-in').value,card.querySelector('.shift-out').value,card.querySelector('.break-out').value,card.querySelector('.break-in').value);card.querySelector('.day-total').textContent=hoursLabel(mins);card.querySelector('.day-hours').textContent=hoursLabel(mins);const total=[...document.querySelectorAll('[data-shift]:not(.day-off-card)')].reduce((n,c)=>n+shiftMinutes(c.querySelector('.shift-in').value,c.querySelector('.shift-out').value,c.querySelector('.break-out').value,c.querySelector('.break-in').value),0);document.querySelector('#summaryWorked').textContent=hoursLabel(total);document.querySelector('#summaryDelta').textContent=hoursLabel(total-2880)}));
   document.querySelector('#saveTimesheets')?.addEventListener('click',()=>{document.querySelectorAll('[data-shift]:not(.day-off-card)').forEach(card=>{timesheets[card.dataset.date]||={};timesheets[card.dataset.date][card.dataset.staff]={in:card.querySelector('.shift-in').value,breakOut:card.querySelector('.break-out').value,breakIn:card.querySelector('.break-in').value,out:card.querySelector('.shift-out').value,off:false}});localStorage.setItem('clockwise-timesheets',JSON.stringify(timesheets));toast('Weekly timesheet saved successfully.')});  document.querySelectorAll('.matrix-select').forEach(cell=>cell.addEventListener('change',()=>{cell.className=`matrix-select code-${cell.value.toLowerCase()}`;const row=cell.closest('tr'),codes=[...row.querySelectorAll('.matrix-select')].map(x=>x.value);row.querySelector('.row-p').textContent=codes.filter(x=>x==='P').length;row.querySelector('.row-s').textContent=codes.filter(x=>x==='S').length;row.querySelector('.row-o').textContent=codes.filter(x=>x==='O').length}));
   document.querySelector('#saveAttendance')?.addEventListener('click',()=>{const statusMap={P:'Present',S:'Sick leave',L:'Late',A:'Absent',O:'Weekly off','-':'Not recorded'};document.querySelectorAll('.matrix-select').forEach(cell=>{dailyAttendance[cell.dataset.date] ||= {};const previous=dailyAttendance[cell.dataset.date][cell.dataset.staff]||{};dailyAttendance[cell.dataset.date][cell.dataset.staff]={...previous,status:statusMap[cell.value]}});localStorage.setItem('clockwise-daily-attendance',JSON.stringify(dailyAttendance));toast('Monthly attendance saved successfully.')});
-  document.querySelector('#departmentFilter')?.addEventListener('change',e=>{document.querySelector('main').innerHTML=`<header><button class="mobile-menu" aria-label="Open menu">&#9776;</button><div class="search">${icon('search')}<input aria-label="Search" placeholder="Search staff or records" /></div><button class="round" aria-label="Notifications">${icon('bell')}<em></em></button></header>${registerView(e.target.value)}`;bind()});
+  document.querySelector('#departmentFilter')?.addEventListener('change',e=>{document.querySelector('main').innerHTML=`<header><button class="mobile-menu" aria-label="Open menu">&#9776;</button><div class="header-context"><b>Cozy Hotel</b><span>HR Management</span></div><div class="search">${icon('search')}<input aria-label="Search" placeholder="Search people, records or reports" /></div><div class="header-date"><small>Today</small><b>08 Aug 2026</b></div><button class="round" aria-label="Notifications">${icon('bell')}<em></em></button><span class="header-avatar">DA</span></header>${registerView(e.target.value)}`;bind()});
   document.querySelector('#rosterDepartment')?.addEventListener('change',e=>{rosterDepartment=e.target.value;render('roster')});
   document.querySelectorAll('.roster-shift').forEach(x=>x.addEventListener('change',()=>{const row=x.closest('tr'),hours=[...row.querySelectorAll('.roster-shift')].filter(s=>s.value!=='Weekly off').length*8;row.querySelector('.roster-hours').textContent=`${hours}h`}));
   document.querySelector('#saveRoster')?.addEventListener('click',()=>{document.querySelectorAll('.roster-shift').forEach(x=>{dutyRoster[x.dataset.day]||={};dutyRoster[x.dataset.day][x.dataset.staff]=x.value});localStorage.setItem('clockwise-duty-roster',JSON.stringify(dutyRoster));toast('Weekly duty roster saved successfully.')});
