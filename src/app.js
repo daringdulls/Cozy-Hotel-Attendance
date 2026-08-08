@@ -1,4 +1,4 @@
-﻿import './styles.css';
+import './styles.css';
 
 const staff = [
   { id: 1, name: 'Sample Staff 01', role: 'Front Office', initials: 'S1', off: 'Friday', rate: 52, color: '#d87e5f' },
@@ -13,6 +13,7 @@ const records = {
 };
 let selected = 1;
 let signed = JSON.parse(localStorage.getItem('clockwise-signed') || '{}');
+let sickLeaves = JSON.parse(localStorage.getItem('clockwise-sick-leaves') || '[{"staffId":3,"date":"2026-08-08","days":1,"paid":true,"note":"Medical leave"}]');
 
 const app = document.querySelector('#app');
 const icon = (name) => ({ grid:'â–¦', team:'â™™', calendar:'â–¤', report:'â—«', settings:'âš™', bell:'â—Œ', search:'âŒ•', plus:'ï¼‹', arrow:'â†’', check:'âœ“' }[name]);
@@ -49,20 +50,21 @@ function render(view='dashboard') {
 function nav(id,ico,label,current){ return `<button class="nav-item ${id===current?'active':''}" data-view="${id}"><span>${icon(ico)}</span>${label}</button>`; }
 
 function dashboardView(){
+  const sickToday = new Set(sickLeaves.filter(l=>l.date==='2026-08-08').map(l=>l.staffId));
   return `<section class="content">
     <div class="eyebrow">SATURDAY, 08 AUGUST</div>
-    <div class="title-row"><div><h1>Good morning.</h1><p>Hereâ€™s how your team is doing today.</p></div><button class="primary" id="addStaff">${icon('plus')} Add staff member</button></div>
+    <div class="title-row"><div><h1>Good morning.</h1><p>Here is how your team is doing today.</p></div><div class="title-actions"><button class="secondary" id="addSick">Record sick leave</button><button class="primary" id="addStaff">${icon('plus')} Add staff member</button></div></div>
     <div class="metrics">
-      ${metric('Todayâ€™s attendance','4 / 5','80% present','up')}
+      ${metric('Today attendance',`${5-sickToday.size} / 5`,`${Math.round((5-sickToday.size)/5*100)}% available`,'up')}
       ${metric('On time','3','1 late arrival','warn')}
       ${metric('Hours logged','34h 27m','of 40h scheduled','neutral')}
-      ${metric('Payroll status','In progress','5 days remaining','neutral')}
+      ${metric('Sick leave',String(sickToday.size),sickToday.size?'recorded today':'none today','warn')}
     </div>
     <div class="grid-two">
       <article class="card attendance-card">
         <div class="card-head"><div><h2>Todayâ€™s attendance</h2><p>Saturday, 08 August</p></div><button class="text-btn" data-view="attendance">View all ${icon('arrow')}</button></div>
         <div class="table-wrap"><table><thead><tr><th>Staff member</th><th>Clock in</th><th>Clock out</th><th>Hours</th><th>Status</th></tr></thead><tbody>
-        ${staff.map(s=>{const r=records[s.id], h=hours(r); return `<tr><td><div class="person"><span class="avatar" style="--avatar:${s.color}">${s.initials}</span><div><b>${s.name}</b><small>${s.role}</small></div></div></td><td>${r[0]}</td><td>${r[1]||'â€”'}</td><td>${h?h.toFixed(1)+'h':'â€”'}</td><td>${s.id===5?'<span class="pill working">Working</span>':s.id===3?'<span class="pill late">Late</span>':'<span class="pill present">Present</span>'}</td></tr>`}).join('')}
+        ${staff.map(s=>{const r=records[s.id], h=hours(r), sick=sickToday.has(s.id); return `<tr><td><div class="person"><span class="avatar" style="--avatar:${s.color}">${s.initials}</span><div><b>${s.name}</b><small>${s.role}</small></div></div></td><td>${sick?'--':r[0]}</td><td>${sick?'--':(r[1]||'--')}</td><td>${sick?'--':(h?h.toFixed(1)+'h':'--')}</td><td>${sick?'<span class="pill sick">Sick leave</span>':s.id===5?'<span class="pill working">Working</span>':s.id===3?'<span class="pill late">Late</span>':'<span class="pill present">Present</span>'}</td></tr>`}).join('')}
         </tbody></table></div>
       </article>
       <aside class="side-stack">
@@ -83,19 +85,26 @@ function payrollView(){
   return `<section class="content payroll-view"><div class="eyebrow">AUGUST 2026 Â· PAYROLL CYCLE</div><div class="title-row"><div><h1>Attendance sign-off</h1><p>Every staff member must confirm their monthly attendance before payroll runs.</p></div><button class="primary ${signedCount<5?'disabled':''}" ${signedCount<5?'disabled':''}>Run payroll</button></div>
   <div class="approval-banner"><div class="ring" style="--p:${signedCount*72}deg"><span>${signedCount}/5</span></div><div><h2>${signedCount===5?'Ready for payroll':'Waiting for staff signatures'}</h2><p>${5-signedCount} signature${5-signedCount===1?'':'s'} remaining Â· Deadline 31 August, 6:00 PM</p></div><div class="legend"><span><i class="green"></i>Signed</span><span><i></i>Pending</span></div></div>
   <article class="card"><div class="card-head"><div><h2>Monthly attendance summary</h2><p>Calculated on 8 working hours per day and one weekly day off.</p></div><button class="secondary" id="exportBtn">Export summary</button></div>
-  <div class="table-wrap"><table><thead><tr><th>Staff member</th><th>Days present</th><th>Days off</th><th>Hours</th><th>Estimated pay</th><th>Approval</th></tr></thead><tbody>
-  ${staff.map((s,i)=>{const days=21-(i%2), hrs=days*8+(i===1?3.5:i===3?1.25:0); return `<tr><td><div class="person"><span class="avatar" style="--avatar:${s.color}">${s.initials}</span><div><b>${s.name}</b><small>${s.role}</small></div></div></td><td>${days}</td><td>4</td><td>${hrs.toFixed(1)}h</td><td>MVR ${(hrs*s.rate).toLocaleString()}</td><td>${signed[s.id]?`<span class="signed">${icon('check')} Signed</span>`:`<button class="sign-btn" data-sign="${s.id}">Request signature</button>`}</td></tr>`}).join('')}
+  <div class="table-wrap"><table><thead><tr><th>Staff member</th><th>Days present</th><th>Sick leave</th><th>Days off</th><th>Payable hours</th><th>Estimated pay</th><th>Approval</th></tr></thead><tbody>
+  ${staff.map((s,i)=>{const sick=sickLeaves.filter(l=>l.staffId===s.id).reduce((n,l)=>n+l.days,0), paidSick=sickLeaves.filter(l=>l.staffId===s.id&&l.paid).reduce((n,l)=>n+l.days,0), days=21-(i%2)-sick, hrs=days*8+paidSick*8+(i===1?3.5:i===3?1.25:0); return `<tr><td><div class="person"><span class="avatar" style="--avatar:${s.color}">${s.initials}</span><div><b>${s.name}</b><small>${s.role}</small></div></div></td><td>${days}</td><td><span class="sick-count">${sick}</span></td><td>4</td><td>${hrs.toFixed(1)}h</td><td>MVR ${(hrs*s.rate).toLocaleString()}</td><td>${signed[s.id]?`<span class="signed">${icon('check')} Signed</span>`:`<button class="sign-btn" data-sign="${s.id}">Request signature</button>`}</td></tr>`}).join('')}
   </tbody></table></div></article></section>`;
 }
 
 function bind(){
   document.querySelectorAll('[data-view]').forEach(b=>b.onclick=()=>render(b.dataset.view==='payroll'?'payroll':'dashboard'));
   document.querySelector('#addStaff')?.addEventListener('click',()=>toast('Staff invitation form is ready for connection.'));
+  document.querySelector('#addSick')?.addEventListener('click',openSickLeave);
   document.querySelector('#exportBtn')?.addEventListener('click',exportCSV);
   document.querySelectorAll('[data-sign]').forEach(b=>b.onclick=()=>openSignature(Number(b.dataset.sign)));
   document.querySelector('.mobile-menu')?.addEventListener('click',()=>document.querySelector('.shell').classList.toggle('menu-open'));
 }
 
+function openSickLeave(){
+  const modal=document.querySelector('#modal');
+  modal.innerHTML=`<div class="modal-backdrop"><form class="dialog sick-dialog"><button type="button" class="close" aria-label="Close">×</button><div class="seal sick-seal">+</div><h2>Record sick leave</h2><p>Add a medical absence to attendance and the monthly payroll summary.</p><label for="sickStaff">Staff member</label><select id="sickStaff" required>${staff.map(s=>`<option value="${s.id}">${s.name} · ${s.role}</option>`).join('')}</select><div class="form-grid"><div><label for="sickDate">Start date</label><input id="sickDate" type="date" value="2026-08-08" required></div><div><label for="sickDays">Number of days</label><input id="sickDays" type="number" min="1" max="30" value="1" required></div></div><label for="sickNote">Note</label><textarea id="sickNote" rows="3" placeholder="Medical certificate or internal note"></textarea><label class="check-row"><input id="sickPaid" type="checkbox" checked> Include as paid sick leave</label><div class="dialog-actions"><button type="button" class="secondary cancel">Cancel</button><button class="primary">Save sick leave</button></div></form></div>`;
+  const close=()=>modal.innerHTML=''; modal.querySelector('.close').onclick=close; modal.querySelector('.cancel').onclick=close;
+  modal.querySelector('form').onsubmit=e=>{e.preventDefault();sickLeaves.push({staffId:Number(modal.querySelector('#sickStaff').value),date:modal.querySelector('#sickDate').value,days:Number(modal.querySelector('#sickDays').value),paid:modal.querySelector('#sickPaid').checked,note:modal.querySelector('#sickNote').value.trim()});localStorage.setItem('clockwise-sick-leaves',JSON.stringify(sickLeaves));render();toast('Sick leave recorded successfully.')};
+}
 function openSignature(id){
   selected=id; const s=staff.find(x=>x.id===id); const modal=document.querySelector('#modal');
   modal.innerHTML=`<div class="modal-backdrop"><div class="dialog"><button class="close" aria-label="Close">Ã—</button><div class="seal">${icon('check')}</div><h2>Confirm monthly attendance</h2><p>I, <b>${s.name}</b>, confirm that the attendance and hours shown for August 2026 are correct.</p><label>Draw signature</label><canvas width="560" height="170"></canvas><small class="hint">Use your mouse or finger to sign in the box.</small><div class="dialog-actions"><button class="secondary" id="clear">Clear</button><button class="primary" id="confirm">Sign & confirm</button></div></div></div>`;
@@ -109,7 +118,7 @@ function openSignature(id){
 }
 
 function exportCSV(){
-  const rows=[['Staff','Role','Days present','Days off','Hours','Rate','Estimated pay','Signed'],...staff.map((s,i)=>{const d=21-(i%2),h=d*8+(i===1?3.5:i===3?1.25:0);return[s.name,s.role,d,4,h,s.rate,(h*s.rate).toFixed(2),signed[s.id]?'Yes':'No']})];
+  const rows=[['Staff','Role','Days present','Sick leave','Days off','Payable hours','Rate','Estimated pay','Signed'],...staff.map((s,i)=>{const sick=sickLeaves.filter(l=>l.staffId===s.id).reduce((n,l)=>n+l.days,0),paidSick=sickLeaves.filter(l=>l.staffId===s.id&&l.paid).reduce((n,l)=>n+l.days,0),d=21-(i%2)-sick,h=d*8+paidSick*8+(i===1?3.5:i===3?1.25:0);return[s.name,s.role,d,sick,4,h,s.rate,(h*s.rate).toFixed(2),signed[s.id]?'Yes':'No']})];
   const blob=new Blob([rows.map(r=>r.join(',')).join('\n')],{type:'text/csv'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='attendance-august-2026.csv';a.click();URL.revokeObjectURL(a.href);
 }
 function toast(msg){let t=document.createElement('div');t.className='toast';t.textContent=msg;document.body.append(t);setTimeout(()=>t.remove(),2800)}
